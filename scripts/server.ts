@@ -3,7 +3,7 @@ import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ethers } from "ethers";
 import dotenv from "dotenv";
-import path from "path"; // <--- ADDED THIS IMPORT
+import path from "path"; 
 
 dotenv.config();
 
@@ -11,12 +11,9 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// --- FIX: SERVE STATIC FILES CORRECTLY FOR VERCEL ---
-// This tells Express: "The frontend files are in the ../public folder"
+// --- VERCEL STATIC FILE HANDLING ---
 app.use(express.static(path.join(__dirname, '../public')));
 
-// --- FIX: EXPLICIT ROOT ROUTE ---
-// This ensures that when you visit the home page, index.html is served
 app.get("/", (req, res) => {
     res.sendFile(path.join(__dirname, "../public/index.html"));
 });
@@ -27,6 +24,8 @@ const WHITELISTED_VENDORS = [
     "0x937402b657c91d9e74fcf373187f1758c0d8e933", 
     "0xd8da6bf26964af9d7eed9e03e53415d37aa96045"
 ];
+// Arc Testnet Explorer Base URL
+const EXPLORER_URL = "https://testnet.arcscan.app/tx/";
 
 // --- SYSTEM PROTOCOL ---
 const SYSTEM_INSTRUCTION = `
@@ -44,7 +43,6 @@ INTERACTION_MODEL:
 `;
 
 // --- BLOCKCHAIN ADAPTER ---
-// NOTE: In production, use a secrets manager, not process.env
 const provider = new ethers.JsonRpcProvider(process.env.ARC_RPC_URL);
 const wallet = new ethers.Wallet(process.env.ARC_PRIVATE_KEY!, provider);
 const USDC_CONTRACT_ADDRESS = "0x3600000000000000000000000000000000000000"; 
@@ -103,8 +101,10 @@ async function executePayment(to: string, amount: string) {
         analysis.status = "BROADCASTED";
         const tx = await contract.transfer(cleanAddress, ethers.parseUnits(amount, 6));
         await tx.wait(1);
+        
+        // --- SUCCESS OUTPUT WITH LINK ---
         return { 
-            output: `[SUCCESS] TX_HASH: ${tx.hash}`,
+            output: `[SUCCESS] TX_HASH: ${tx.hash} (View: ${EXPLORER_URL}${tx.hash})`,
             analysis 
         };
     } catch (error: any) {
@@ -177,8 +177,7 @@ app.post("/api/chat", async (req, res) => {
     }
 });
 
-// --- VERCEL EXPORT CONFIGURATION ---
-// This setup allows the app to work both locally AND on Vercel
+// --- VERCEL EXPORT ---
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => console.log(`🚀 ArcFlow Terminal Online: http://localhost:${PORT}`));

@@ -168,4 +168,11 @@ app.post("/api/chat", async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`[SYSTEM] ArcFlow Kernel Active on Port ${PORT}`));
+
+// Vercel Serverless Handling
+if (process.env.NODE_ENV !== 'production') {
+    const PORT = process.env.PORT || 3000;
+    app.listen(PORT, () => console.log(`🚀 ArcFlow Terminal Online: http://localhost:${PORT}`));
+}
+
+export default app;

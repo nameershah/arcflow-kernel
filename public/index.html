@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArcFlow | Secure Kernel</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0b0c10; --panel: #1f2833; --accent: #66fcf1; --text: #c5c6c7; --red: #ff4d4d; --green: #00e676; --yellow: #ffcc00; }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; height: 100vh; display: flex; overflow: hidden; }
+        
+        .container { display: flex; width: 100%; height: 100%; }
+        
+        /* TERMINAL LEFT (Chat) */
+        .chat-section { flex: 2; display: flex; flex-direction: column; border-right: 1px solid #333; }
+        .header { padding: 20px; border-bottom: 1px solid #333; display: flex; align-items: center; justify-content: space-between; background: rgba(31, 40, 51, 0.5); }
+        .brand { font-family: 'JetBrains Mono', monospace; font-weight: 700; color: var(--accent); letter-spacing: 1px; }
+        .status { font-size: 10px; color: var(--green); border: 1px solid var(--green); padding: 2px 6px; border-radius: 4px; }
+
+        .messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .msg { padding: 15px; border-radius: 4px; font-size: 14px; line-height: 1.5; max-width: 85%; }
+        .msg.user { align-self: flex-end; background: #2b3b4b; border-left: 3px solid var(--accent); }
+        .msg.ai { align-self: flex-start; background: #1c1c1e; border: 1px solid #333; font-family: 'JetBrains Mono', monospace; }
+        
+        .input-area { padding: 20px; border-top: 1px solid #333; background: #0b0c10; display: flex; gap: 10px; }
+        input { flex: 1; background: #1f2833; border: 1px solid #333; color: white; padding: 12px; font-family: 'JetBrains Mono', monospace; outline: none; }
+        input:focus { border-color: var(--accent); }
+        button { background: var(--accent); color: #0b0c10; border: none; padding: 0 20px; font-weight: 700; cursor: pointer; text-transform: uppercase; font-size: 12px; }
+
+        /* OBSERVABILITY RIGHT (Logs) */
+        .logs-section { flex: 1; background: #000; display: flex; flex-direction: column; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+        .logs-header { padding: 20px; border-bottom: 1px solid #333; color: #666; font-size: 11px; letter-spacing: 1px; }
+        .log-window { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        
+        .log-entry { display: flex; gap: 10px; opacity: 0.8; padding: 4px 0; border-bottom: 1px solid #1a1a1a; }
+        .ts { color: #555; min-width: 70px; }
+        .type { font-weight: 700; }
+        .danger { color: var(--red); }
+        .success { color: var(--green); }
+        .warn { color: var(--yellow); }
+        .info { color: var(--accent); }
+
+        /* SVG ICONS */
+        .icon { width: 14px; height: 14px; fill: currentColor; display: inline-block; vertical-align: middle; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="chat-section">
+        <div class="header">
+            <div class="brand">ARCFLOW_KERNEL_V1</div>
+            <div class="status">● SYSTEM ONLINE</div>
+        </div>
+        <div class="messages" id="messages">
+            <div class="msg ai">
+                [SYSTEM_INIT] Deterministic Policy Engine Active.<br>
+                Uplink: Arc Testnet // Currency: USDC
+            </div>
+        </div>
+        <div class="input-area">
+            <input type="text" id="input" placeholder="Execute Command..." autocomplete="off">
+            <button onclick="sendMessage()">SUBMIT</button>
+        </div>
+    </div>
+
+    <div class="logs-section">
+        <div class="logs-header">REAL-TIME TELEMETRY</div>
+        <div class="log-window" id="logs">
+            <div class="log-entry"><span class="ts">00:00:00</span><span class="type info">[INFO]</span><span>RPC_CONNECTION_ESTABLISHED</span></div>
+            <div class="log-entry"><span class="ts">00:00:01</span><span class="type info">[INFO]</span><span>POLICY_GATE_ACTIVE</span></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const history = [];
+
+    function addLog(text, type = "info") {
+        const logs = document.getElementById("logs");
+        const time = new Date().toISOString().split('T')[1].split('.')[0];
+        logs.innerHTML += `<div class="log-entry"><span class="ts">${time}</span><span class="type ${type}">[${type.toUpperCase()}]</span><span>${text}</span></div>`;
+        logs.scrollTop = logs.scrollHeight;
+    }
+
+    function addMessage(text, sender) {
+        const div = document.createElement("div");
+        div.className = `msg ${sender}`;
+        // Clean Link Formatting
+        let content = text.replace(/(https?:\/\/testnet.arcscan.app\/tx\/0x[a-fA-F0-9]+)/g, '<a style="color:#66fcf1" href="$1" target="_blank">[VIEW_ON_CHAIN]</a>');
+        content = content.replace(/\n/g, '<br>');
+        div.innerHTML = content;
+        document.getElementById("messages").appendChild(div);
+        document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+    }
+
+    async function sendMessage() {
+        const input = document.getElementById("input");
+        const text = input.value;
+        if (!text) return;
+
+        addMessage(text, "user");
+        input.value = "";
+        
+        addLog(`INPUT_BUFFER_RX: ${text.substring(0,20)}...`);
+
+        try {
+            const res = await fetch("/api/chat", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ message: text, history: history })
+            });
+            const data = await res.json();
+            
+            if (data.action === "TX_ATTEMPT") {
+                const { output, analysis } = data.details;
+                
+                // DATA VISUALIZATION LOGS
+                addLog(`RISK_EVAL :: SCORE=${analysis.risk_score}/100`, analysis.risk_score > 50 ? "warn" : "success");
+                
+                if (analysis.factors.length > 0) {
+                    addLog(`RISK_FACTORS :: [${analysis.factors.join(", ")}]`, "warn");
+                }
+
+                if (analysis.status.includes("BLOCKED")) {
+                    addLog(`KERNEL_INTERVENTION :: ${analysis.status}`, "danger");
+                } else {
+                    addLog(`SIGNATURE_VERIFIED :: BROADCASTING`, "success");
+                }
+            }
+
+            addMessage(data.reply, "ai");
+            
+            history.push({ role: "user", parts: [{ text: text }] });
+            history.push({ role: "model", parts: [{ text: data.reply }] });
+
+        } catch (err) {
+            addLog(`SYSTEM_ERR :: ${err.message}`, "danger");
+        }
+    }
+
+    document.getElementById("input").addEventListener("keypress", (e) => {
+        if (e.key === "Enter") sendMessage();
+    });
+</script>
+
+</body>
+</html>

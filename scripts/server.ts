@@ -3,13 +3,23 @@ import cors from "cors";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import { ethers } from "ethers";
 import dotenv from "dotenv";
+import path from "path"; // <--- ADDED THIS IMPORT
 
 dotenv.config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
-app.use(express.static('public'));
+
+// --- FIX: SERVE STATIC FILES CORRECTLY FOR VERCEL ---
+// This tells Express: "The frontend files are in the ../public folder"
+app.use(express.static(path.join(__dirname, '../public')));
+
+// --- FIX: EXPLICIT ROOT ROUTE ---
+// This ensures that when you visit the home page, index.html is served
+app.get("/", (req, res) => {
+    res.sendFile(path.join(__dirname, "../public/index.html"));
+});
 
 // --- SECURITY CONFIGURATION ---
 const MAX_LIMIT_USDC = 50.0; 
@@ -167,9 +177,8 @@ app.post("/api/chat", async (req, res) => {
     }
 });
 
-const PORT = process.env.PORT || 3000;
-
-// Vercel Serverless Handling
+// --- VERCEL EXPORT CONFIGURATION ---
+// This setup allows the app to work both locally AND on Vercel
 if (process.env.NODE_ENV !== 'production') {
     const PORT = process.env.PORT || 3000;
     app.listen(PORT, () => console.log(`🚀 ArcFlow Terminal Online: http://localhost:${PORT}`));
